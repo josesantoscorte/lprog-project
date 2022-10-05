@@ -1,187 +1,6 @@
 %103210 Jose Santos Corte
 
-%Comum
-%-------------------------------------------------------------------------------
-%                escreve_Puzzle(Puzzle, Estado)
-%-------------------------------------------------------------------------------
-escreve_Puzzle(Puz, Estado) :-
-    findall(Ps, (member([_,_,Ps], Estado), Ps \= []), Lst_lst_pontes),
-    tira_repetidas(Lst_lst_pontes, Lst_pontes),
-    divide_pontes(Lst_pontes, Pontes_horizontais, Pontes_verticais),
-    maplist(posicoes_ponte, Pontes_horizontais, Posicoes_horizontais_temp),
-    maplist(posicoes_ponte, Pontes_verticais, Posicoes_verticais_temp),
-    append(Posicoes_horizontais_temp, Posicoes_horizontais),
-    append(Posicoes_verticais_temp, Posicoes_verticais),
-    processa_horizontais(Puz, Posicoes_horizontais, Temp),
-    processa_verticais(Temp, Posicoes_verticais, N_Puz),
-    escreve_final(N_Puz).
-
-escreve_car(Car) :-
-    integer(Car), Car > 0, !, write(' '), write(Car), write(' ')
-                                ;
-     Car == 0, !, write('   ')
-                           ;
-     Car == '||', !, write(' '), write('"'), write(' ')
-                      ;
-    write(' '), write(Car), write(' ').
-
-escreve_linha(L) :-
-    maplist(escreve_car, L), nl.
-
-escreve_final(Puz) :-
-    maplist(escreve_linha, Puz).
-    
-tira_repetidas(Lst_lst_pontes, Lst_pontes) :-
-    tira_repetidas(Lst_lst_pontes, Lst_pontes, []).
-
-tira_repetidas([], Exist, Exist) :- !.
-tira_repetidas([P | R], Lst_pontes, Exist) :-
-    maplist(subtract_inv(P), R, N_R),
-    append(Exist, P, N_Exist),
-    tira_repetidas(N_R, Lst_pontes, N_Exist).
-
-subtract_inv(L1, L2, Res) :- subtract(L2, L1, Res).
-
-ponte_horizontal(ponte((L,_),(L,_))).
-ponte_vertical(ponte((_,C),(_,C))).
-
-divide_pontes(Pontes, Pontes_horizontais, Pontes_verticais) :-
-    include(ponte_horizontal, Pontes, Pontes_horizontais),
-    subtract(Pontes, Pontes_horizontais, Pontes_verticais).
-
-posicoes_ponte(ponte(P1, P2), Ps) :- posicoes_entre(P1, P2, Ps).
-
-processa_horizontais(Puz, Posicoes_horizontais, N_Puz) :-
-    transforma(Puz, processa_horizontal, [], Posicoes_horizontais, N_Puz).
-
-processa_verticais(Puz, Posicoes_verticais, N_Puz) :-
-    transforma(Puz, processa_vertical, [], Posicoes_verticais, N_Puz).
-
-processa_horizontal(Puz, Pos, N_Puz) :-
-    mat_ref(Puz, Pos, Cont),
-    (Cont = 0, !, mat_muda_posicao(Puz, Pos, '-', N_Puz)
-                                   ;
-     mat_muda_posicao(Puz, Pos, '=', N_Puz)).
-
-processa_vertical(Puz, Pos, N_Puz) :-
-    mat_ref(Puz, Pos, Cont),
-    (Cont = 0, !, mat_muda_posicao(Puz, Pos, '|', N_Puz)
-                               ;
-     mat_muda_posicao(Puz, Pos, '||', N_Puz)).
-
-%-----------------------------------------------------------------------------
-% mat_ref(Mat, Pos, Cont):
-%-----------------------------------------------------------------------------
-mat_ref(Mat, (L, C), Cont) :-
-    nth1(L, Mat, Linha),
-    nth1(C, Linha, Cont).
-%-----------------------------------------------------------------------------
-% mat_muda_posicao(Mat, Pos, Cont, N_Mat):
-% N_Mat e' o resultado de substituir o conteudo da posicao Pos
-% de Mat por Cont.
-%-----------------------------------------------------------------------------
-
-mat_muda_posicao(Mat, (L,C), Cont, N_Mat) :-
-    nth1(L,Mat,Linha),
-    mat_muda_linha(Linha,C,Cont, N_Linha),
-    mat_muda_linha(Mat,L,N_Linha, N_Mat),!.
-
-%-----------------------------------------------------------------------------
-% mat_muda_posicoes(Mat, Lst_Posicoes, Lst_Cont, N_Mat):
-% N_Mat e' o resultado de substituir o conteudo das posicoes de
-% Lst_Posicoes de Mat pelo elemento correpondente de Lst_Cont.
-%-----------------------------------------------------------------------------
-mat_muda_posicoes(Mat, [], _, Mat) :- !.
-
-mat_muda_posicoes(Mat, [Pos | R_Pos], [Cont | R_Cont], N_Mat) :-
-    mat_muda_posicao(Mat, Pos, Cont, Temp),
-    mat_muda_posicoes(Temp, R_Pos, R_Cont, N_Mat).
-
-%-----------------------------------------------------------------------------
-% mat_muda_linha(Mat, L, N_Linha_L, N_Mat):
-% N_Mat e' o resultado de substituir a linha L de Mat
-% por N_Linha_L.
-%-----------------------------------------------------------------------------
-mat_muda_linha([_|T], 1, N_Linha_L, [N_Linha_L|T]) :- !.
-
-mat_muda_linha([H|T], L, N_Linha_L, [H|R]):-
-    L > 0,
-    NL is L-1,
-    mat_muda_linha(T, NL, N_Linha_L, R), !.
-
-%-----------------------------------------------------------------------------
-%transforma
-%-----------------------------------------------------------------------------
-%transforma(Est, Pred, Args, Lst, N_Est).
-%Pred(Est, Args, El_Lst, N_est)
-
-transforma(Est, _, _, [], Est).
-
-transforma(Est, Pred, Args, [P | R], N_Est) :-
-    append([[Est], Args, [P, Temp]], Todos_args),
-    Lit =.. [Pred | Todos_args],
-    call(Lit),
-    transforma(Temp, Pred, Args, R, N_Est).
-
-%-----------------------------------------------------------------------------
-% Comparacao de estados
-%-----------------------------------------------------------------------------
-compara_estados(Est1, Est2, Difs) :-
-    length(Est1, N_Ents),
-    findall([Ent1, Ent2],
-            (between(1, N_Ents, I), nth1(I, Est1, Ent1), nth1(I, Est2, Ent2), Ent1 \= Ent2),
-            Difs).
-
-escreve_diferencas(Est1, Est2) :-
-    compara_estados(Est1, Est2, Difs),
-    maplist(escreve_dif, Difs).
-
-escreve_dif([Ent1, Ent2]) :-
-    writeln(Ent1),
-    writeln('passou a'),
-    writeln(Ent2),
-    nl.
-
-%-----------------------------------------------------------------------------
-%https://www.conceptispuzzles.com/index.aspx?uri=puzzle/hashi/techniques
-puzzle_publico(1, %7x7 Hashi Normal Puzzle ID: 7,712,875
-               [[2, 0, 0, 0, 0, 0, 0],
-                [0, 0, 2, 0, 4, 0, 2],
-                [0, 0, 0, 0, 0, 0, 0],
-                [4, 0, 3, 0, 0, 0, 0],
-                [0, 3, 0, 2, 0, 0, 1],
-                [0, 0, 0, 0, 0, 0, 0],
-                [0, 2, 0, 0, 4, 0, 1]]).
-
-puzzle_publico(2, %7x7 Hashi Easy Puzzle ID: 1,987,709
-    [[4, 0, 0, 0, 0, 0, 3],
-     [0, 0, 0, 0, 0, 0, 0],
-     [0, 0, 1, 0, 1, 0, 0],
-     [0, 0, 0, 0, 0, 0, 0],
-     [0, 0, 0, 0, 0, 0, 0],
-     [0, 0, 3, 0, 4, 0, 2],
-     [4, 0, 0, 2, 0, 0, 0]]).
-
-puzzle_publico(3,
-              [[2, 0, 2, 0, 5, 0, 2, 0],
-               [0, 0, 0, 0, 0, 1, 0, 3],
-               [6, 0, 3, 0, 0, 0, 0, 0],
-               [0, 2, 0, 0, 6, 0, 1, 0],
-               [3, 0, 1, 0, 0, 2, 0, 6],
-               [0, 2, 0, 0, 0, 0, 0, 0],
-               [1, 0, 3, 0, 5, 0, 0, 3],
-               [0, 2, 0, 3, 0, 0, 2, 0]]).
-
-puzzle_publico(4,
-[[0, 0, 2, 0, 6, 0, 2, 0, 1],
- [3, 0, 0, 3, 0, 0, 0, 0, 0],
- [0, 0, 0, 0, 5, 0, 5, 0, 4],
- [0, 2, 0, 3, 0, 1, 0, 0, 0],
- [5, 0, 0, 0, 5, 0, 0, 0, 2],
- [0, 0, 1, 0, 0, 0, 2, 0, 0],
- [4, 0, 0, 0, 0, 3, 0, 0, 3],
- [0, 0, 2, 0, 3, 0, 1, 0, 0],
- [3, 0, 0, 2, 0, 3, 0, 2, 0]]).
+:- [codigo_comum].
 
 %Projeto
 
@@ -190,13 +9,60 @@ extrai_ilhas_linha(N_L, Lista, Ilhas) :-
     findall(ilha(H,(N_L,N_C)),(nth1(N_C, Lista, H), H \== 0), Ilhas).
 
 %2.2
-ilhas_aux(Puz, Ilhas_Lista) :-
-    findall(Ilhas_Lista,(nth1(N_L, Puz, Lista), Lista \== [], 
-    extrai_ilhas_linha(N_L, Lista, Ilhas_Lista)), Ilhas_Lista).
+ilhas(Puz, Ilhas) :-
+    findall(Ilhas_Lista,(nth1(Linha, Puz, Linha_Lista), extrai_ilhas_linha(Linha, Linha_Lista, Ilhas_Lista)), Ilhas_Lista),
+    append(Ilhas_Lista,Ilhas).
+
+%2.3
+get_last([], []).
+get_last(List, List) :- length(List, 1), !.
+get_last([_|T], Res) :- get_last(T, Res).
+
+get_first([], []) :- !.
+get_first([H|_], [H]).
+
+vizinhas_aux(Ilhas, Y_Ilha, X_Ilha, Vizinhas) :-
+    findall(Ilhas_Vizinhas, (member(Ilhas_Vizinhas, Ilhas),
+    arg(2, Ilhas_Vizinhas, Cords_Comp), Cords_Comp = (Y_Comp, X_Comp),
+    X_Comp == X_Ilha, Y_Comp < Y_Ilha), Vizinhas_X_Sup),
+
+    get_last(Vizinhas_X_Sup, X_Sup),
+
+    findall(Ilhas_Vizinhas, (member(Ilhas_Vizinhas, Ilhas),
+    arg(2, Ilhas_Vizinhas, Cords_Comp), Cords_Comp = (Y_Comp, X_Comp),
+    X_Comp == X_Ilha, Y_Comp > Y_Ilha), Vizinhas_X_Inf),
+    
+    get_first(Vizinhas_X_Inf, X_Inf),
+
+    findall(Ilhas_Vizinhas, (member(Ilhas_Vizinhas, Ilhas),
+    arg(2, Ilhas_Vizinhas, Cords_Comp), Cords_Comp = (Y_Comp, X_Comp),
+    Y_Comp == Y_Ilha, X_Comp < X_Ilha), Vizinhas_Y_Left),
+
+    get_last(Vizinhas_Y_Left, Y_Left),
+
+    findall(Ilhas_Vizinhas, (member(Ilhas_Vizinhas, Ilhas),
+    arg(2, Ilhas_Vizinhas, Cords_Comp), Cords_Comp = (Y_Comp, X_Comp),
+    Y_Comp == Y_Ilha, X_Comp > X_Ilha), Vizinhas_Y_Right),
+
+    get_first(Vizinhas_Y_Right, Y_Right),
+
+    append(X_Sup, Y_Left, Vizinhas_1),    
+    append(Vizinhas_1, Y_Right, Vizinhas_2),   
+    append(Vizinhas_2, X_Inf, Vizinhas).   
+
+vizinhas(Ilhas, Ilha, Vizinhas) :- 
+    arg(2, Ilha, Cords),
+    Cords = (Y_Ilha, X_Ilha),
+    vizinhas_aux(Ilhas, Y_Ilha, X_Ilha, Vizinhas).
+
+%2.4
+estado(Ilhas, Estado) :-
+    findall([Ilha, Vizinhas, []], (member(Ilha, Ilhas), 
+    vizinhas(Ilhas, Ilha, Vizinhas)), Estado).
 
 %2.5
 %Nao estao na mesma linha
-posicoes_entre(Pos1, Pos2, Posicoes) :-
+posicoes_entre(Pos1, Pos2, _) :-
     Pos1 = (X1, Y1),
     Pos2 = (X2, Y2),
     X1 \== X2,
@@ -209,7 +75,7 @@ posicoes_entre(Pos1, Pos2, Posicoes) :-
     Pos2 = (X2, Y2),
     X1 == X2,
     Y1 < Y2,
-    findall((X1, Y),(between(Y1, Y2, Y)),Posicoes).
+    findall((X1, Y),(between(Y1, Y2, Y), Y1 \== Y, Y2 \== Y),Posicoes).
 
 %Mesmo X, Y1 > Y2
 posicoes_entre(Pos1, Pos2, Posicoes) :-
@@ -217,7 +83,7 @@ posicoes_entre(Pos1, Pos2, Posicoes) :-
     Pos2 = (X2, Y2),
     X1 == X2,
     Y1 > Y2,
-    findall((X1, Y),(between(Y2, Y1, Y)),Posicoes).
+    findall((X1, Y),(between(Y2, Y1, Y), Y1 \== Y, Y2 \== Y),Posicoes).
 
 %Mesmo Y, X1 > X2
 posicoes_entre(Pos1, Pos2, Posicoes) :-
@@ -225,7 +91,7 @@ posicoes_entre(Pos1, Pos2, Posicoes) :-
     Pos2 = (X2, Y2),
     X1 < X2,
     Y1 == Y2,
-    findall((X, Y1),(between(X1, X2, X)),Posicoes).
+    findall((X, Y1),(between(X1, X2, X), X1 \== X, X2 \== X),Posicoes).
 
 %Mesmo Y, X1 < X2
 posicoes_entre(Pos1, Pos2, Posicoes) :-
@@ -233,4 +99,89 @@ posicoes_entre(Pos1, Pos2, Posicoes) :-
     Pos2 = (X2, Y2),
     X1 > X2,
     Y1 == Y2,
-    findall((X, Y1),(between(X2, X1, X)),Posicoes).
+    findall((X, Y1),(between(X2, X1, X), X1 \== X, X2 \== X),Posicoes).
+
+%2.6
+cria_ponte(Pos1, Pos2, Ponte) :-
+    Pos1 = (X1, Y1),
+    Pos2 = (X2, Y2),
+    X1 == X2,
+    Y1 < Y2,
+    Ponte = ponte(Pos1, Pos2).
+
+cria_ponte(Pos1, Pos2, Ponte) :-
+    Pos1 = (X1, Y1),
+    Pos2 = (X2, Y2),
+    X1 == X2,
+    Y1 > Y2,
+    Ponte = ponte(Pos2, Pos1).
+
+cria_ponte(Pos1, Pos2, Ponte) :-
+    Pos1 = (X1, Y1),
+    Pos2 = (X2, Y2),
+    X1 < X2,
+    Y1 == Y2,
+    Ponte = ponte(Pos1, Pos2).
+
+cria_ponte(Pos1, Pos2, Ponte) :-
+    Pos1 = (X1, Y1),
+    Pos2 = (X2, Y2),
+    X1 > X2,
+    Y1 == Y2,
+    Ponte = ponte(Pos2, Pos1).
+
+%2.7
+elementos_comuns([], _, []).
+elementos_comuns([H|T], Lst2, [H|Lst1]):- member(H, Lst2), !, elementos_comuns(T, Lst2, Lst1).
+elementos_comuns([_|T], Lst2, Lst1):-  elementos_comuns(T, Lst2, Lst1).
+
+caminho_livre_aux(Posicoes, Comp) :- 
+    elementos_comuns(Posicoes, Comp, List),
+    List == [],
+    true.
+
+caminho_livre_aux(Posicoes, Comp) :- 
+    elementos_comuns(Posicoes, Comp, List),
+    List \== [],
+    false.
+
+caminho_livre(Pos1, Pos2, _, I, Vz) :-
+    arg(2, I, Cords_Ilha),
+    arg(2, Vz, Cords_Vizinha),
+    Pos1 == Cords_Ilha,
+    Pos2 == Cords_Vizinha,
+    true.
+
+caminho_livre(Pos1, Pos2, _, I, Vz) :-
+    arg(2, I, Cords_Ilha),
+    arg(2, Vz, Cords_Vizinha),
+    Pos2 == Cords_Ilha,
+    Pos1 == Cords_Vizinha,
+    true.
+
+caminho_livre(_, _, Posicoes, I, Vz) :-
+    arg(2, I, Cords_Ilha),
+    arg(2, Vz, Cords_Vizinha),
+    posicoes_entre(Cords_Ilha, Cords_Vizinha, Comp),
+    caminho_livre_aux(Posicoes, Comp).
+
+%2.8
+actualiza_vizinhas_entrada(Pos1, Pos2, Posicoes, Entrada, Nova_Entrada) :-
+    Entrada = [I, Vizinhas, Pontes],
+    findall(Vz, (member(Vz, Vizinhas), 
+    caminho_livre(Pos1, Pos2, Posicoes, I, Vz)), Restantes),
+    Nova_Entrada = [I, Restantes, Pontes].
+
+%2.9
+actualiza_vizinhas_apos_pontes(Estado, Pos1, Pos2, Novo_Estado) :-
+    posicoes_entre(Pos1, Pos2, Posicoes),
+    findall(Nova_Entrada, (member(Entrada_Antiga, Estado), 
+    actualiza_vizinhas_entrada(Pos1, Pos2, Posicoes, Entrada_Antiga, Nova_Entrada)),
+    Novo_Estado).
+
+%2.10
+ilhas_terminadas(Estado, Ilhas_term) :-
+    findall(ilha(N,Pos), 
+    (member(Entrada, Estado), Entrada = [ilha(N,Pos), _, Pontes],
+    N \== 'X', length(Pontes, N)), Ilhas_term).
+
